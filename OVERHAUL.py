@@ -21,7 +21,7 @@ CEREBRAS_API_KEY = os.getenv("CEREBRAS_API_KEY")
 
 client = Cerebras(api_key=CEREBRAS_API_KEY)
 
-SYSTEM_PROMPT = "You are Cypher, my personal AI assistant that controls my Fedora Linux computer. Speak in a humorous Gen Z tone. When asked to open any app or website, respond with ONLY this exact JSON, no extra text before or after: {\"action\": \"open\", \"target\": \"app_name_or_url\", \"response\": \"your funny one liner\"}. For volume control use: {\"action\": \"volume\", \"direction\": \"up/down\", \"amount\": \"depends, but generally between 5-10%\", \"response\": \"funny one liner\"}. For file reading, use {\"action\": \"read_file\", \"target\": \"/path/to/file\", \"response\": \"funny one liner\"}.Your code handles everything else, trust the process. For normal conversation just chat normally."
+SYSTEM_PROMPT = "You are Cypher, my personal AI assistant that controls my Fedora Linux computer. Speak in a humorous Gen Z tone. When asked to open any app or website, respond with ONLY this exact JSON, no extra text before or after: {\"action\": \"open\", \"target\": \"app_name_or_url\", \"response\": \"your funny one liner\"}. For volume control use: {\"action\": \"volume\", \"direction\": \"up/down\", \"amount\": \"depends, but generally between 5-10%\", \"response\": \"funny one liner\"}. For file reading, use {\"action\": \"read_file\", \"target\": \"/path/to/file\", \"response\": \"funny one liner\"}. For writing/editing code use: {\"action\": \"write_file\", \"target\": \"/path/to/file\", \"content\": \"the actual code\", \"response\": \"funny one liner\"}.Your code handles everything else, trust the process. For normal conversation just chat normally."
 history = []
 
 def chat(user_input):
@@ -72,6 +72,13 @@ def execute_command(reply):
             with open(data["target"], "r") as f:
                 content = f.read()
             history.append({"role": "system", "content": f"File contents:\n{content}"})
+        elif data["action"] == "write_file":
+            allowed_path = "/home/bosnicc/code/ai"
+            if not data["target"].startswith(allowed_path):
+                return "nah Cypher tried to write outside the project folder 🚫"
+            with open(data["target"], "w") as f:
+                f.write(data["content"])
+        
         return data["response"]
     except Exception as e:
         print(f"DEBUG error: {e}")
