@@ -9,11 +9,13 @@
 #----imports----#
 import os
 import json
+import asyncio
 import subprocess
 import shutil
 from dotenv import load_dotenv
 from cerebras.cloud.sdk import Cerebras
 from system_info import get_system_summary
+from voice import speak, WakeWord, record_until_silence, transcribe
 #---------------#
 
 #----CEREBRAS BACKEND----#
@@ -23,6 +25,7 @@ CEREBRAS_API_KEY = os.getenv("CEREBRAS_API_KEY")
 client = Cerebras(api_key=CEREBRAS_API_KEY)
 
 SYSTEM_PROMPT = "You are Cypher, my personal AI assistant that controls my Fedora Linux computer. Speak in a humorous Gen Z tone. When asked to open any app or website, respond with ONLY this exact JSON, no extra text before or after: {\"action\": \"open\", \"target\": \"app_name_or_url\", \"response\": \"your funny one liner\"}. For system info use: {\"action\": \"info\", \"response\": \"funny one liner\"}. For volume control use: {\"action\": \"volume\", \"direction\": \"up/down\", \"amount\": \"depends, but generally between 5-10%\", \"response\": \"funny one liner\"}. For file reading, use {\"action\": \"read_file\", \"target\": \"/path/to/file\", \"response\": \"funny one liner\"}. For writing/editing code use: {\"action\": \"write_file\", \"target\": \"/path/to/file\", \"content\": \"the actual code\", \"response\": \"funny one liner\"}.Your code handles everything else, trust the process. For normal conversation just chat normally."
+
 history = []
 
 def chat(user_input):
@@ -74,21 +77,54 @@ def execute_command(reply):
                 content = f.read()
             history.append({"role": "system", "content": f"File contents:\n{content}"})
         elif data["action"] == "info":
-            return get_system_summary()    
+            return get_system_summary()
         elif data["action"] == "write_file":
             allowed_path = "/home/bosnicc/code/ai"
             if not data["target"].startswith(allowed_path):
                 return "nah Cypher tried to write outside the project folder 🚫"
-            with open(data["target"], "w") as f:
+            mode = data.get("mode", "w")
+            with open(data["target"], mode) as f:
                 f.write(data["content"])
         
         return data["response"]
     except Exception as e:
         print(f"DEBUG error: {e}")
         return reply
-    
-while True:
-    user_input = input("You: ")
-    if user_input.lower() in ["exit", "quit", "end"]:
-        break
-    print(f"Cypher: {execute_command(chat(user_input))}")
+
+async def voice_mode():
+    wd = WakeWord()
+    print("[Cypher] Voice mode active, say 'Cypher' to wake me up 👂")
+    current_speech = None
+    while True:
+        await wd.wait()
+        
+        if current_speech and not current_speech.done():
+            current_speech.cancel()
+            try:
+                await current_speech
+            except asyncio.CancelledError:
+                pass
+        
+        audio = record_until_silence()
+        user_input = transcribe(audio)
+        if user_input:
+            print(f"You: {user_input}")
+            response = execute_command(chat(user_input))
+            print(f"Cypher: {response}")
+            current_speech = asyncio.create_task(speak(response))
+
+def text_mode():
+    print("[Cypher] Text mode active, type away 💬")
+    while True:
+        user_input = input("You: ")
+        if user_input.lower() in ["exit", "quit", "end"]:
+            break
+        print(f"Cypher: {execute_command(chat(user_input))}")
+
+print("Choose mode: [1] Text  [2] Voice")
+choice = input("> ")
+
+if choice == "2":
+    asyncio.run(voice_mode())
+else:
+    text_mode()
