@@ -1,9 +1,9 @@
 # === CYPHER V2 ===
-#---- 1. voice input (whisper/vosk)
-#---- 2. send to cerebras
-#---- 3. parse response for OS commands
-#---- 4. execute command
-#----5. voice output (edge-tts)
+#---- 1. add a new feature
+#---- 2. ask cypher what he thinks
+#---- 3. ask him for more features
+#---- 4. add his features
+#---- 5. test his features
 #---- 6. repeat
 
 #----imports----#
